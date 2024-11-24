@@ -1,33 +1,31 @@
 #include <bits/stdc++.h>
 #include "autotruct.h"
+///*
+#include <xxx_tools/strnum.h>
+#include <xxx_tools/strnum.cpp>
+//*/
 using namespace std;
 using namespace xxx;
 
 int main(){
 #if 1
-    autostruct<int,bool,char,vector<int>> a;
-    cout<< sizeof(a) << endl
-        << "int : " << sizeof(int) << endl
-        << "bool : " << sizeof(bool) << endl
-        << "char : " << sizeof(char) << endl
-        << "vector<int> " << sizeof(vector<int>) << endl
-    ;
-    scanf("%d",&a.getmember<1>());
-    a.getmember<2>() = true;
-    getchar();
-    scanf("%c",&a.getmember<3>());
-    do{
-        int k;
-        scanf("%d",&k);
-        a.getmember<4>().push_back(k);
-    }while(getchar()!=';');
-    cout<< "int : " << a.getmember<1>() << endl
-        << "bool : " << a.getmember<2>() << endl
-        << "char : " ; putchar(a.getmember<3>());cout << endl
-        << "vector : " << endl
-    ;
-    for(auto k:a.getmember<4>())
-        cout << k << endl;
+    autostruct<int,char,bool,strflt> x;
+    printf("%d %d\n",sizeof(int)+sizeof(char)+sizeof(bool)+sizeof(strflt),sizeof(x));
+    auto& [a,b,c,d] = x;
+    c = true;
+    scanf("%d%c",&a,&b);
+    d.gain();
+    d *= d;
+    cout << get<0>(x) << endl;
+    putchar(x.getmember<2>());
+    printf("\n%d\n",get<2>(x));
+    x.getmember<4>().soutln(16);
+    printf("////////////////////////////\n");
+    x = make_autostruct(1,'0',false,d+d);
+    cout << get<0>(x) << endl;
+    putchar(x.getmember<2>());
+    printf("\n%d\n",get<2>(x));
+    x.getmember<4>().soutln(16);
 #else
     autounion<int,char,vector<int>,set<int>> b;
     b.getmember<1>() = 1234567;
