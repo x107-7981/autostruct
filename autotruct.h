@@ -2,20 +2,24 @@
     Do you know "std::tuple<>" ?
     It can work to instead it.
     made by x107.
-    recent update : 2024.10.1
+    recent update : 2024.11.2
 */
 #ifndef AUTOSTRUCT_H
 #define AUTOSTRUCT_H
-#ifndef __cplusplus
-#error autostruct is only for cpp
+#if !defined __cplusplus || __cplusplus < 201103L
+#error autostruct is only for C++ which more than c++11
 #endif
+#include <cstring>
+#include <algorithm>
+
 namespace xxx{
 
 //get union's size (body)
 template <typename Tp, typename...Tail>
 class __getunionsize{
 public: const static unsigned long long
-    value = std::max(__getunionsize<Tail...>::value, sizeof(Tp));
+    value = (__getunionsize<Tail...>::value < sizeof(Tp))?
+    sizeof(Tp):__getunionsize<Tail...>::value;
 };
 //get union's size (exit)
 template <typename Tp>
@@ -57,8 +61,8 @@ public:
 
     template <unsigned int num>
     void delmember(){
-        typename __getuniontype<num,Args...>::type __del = std::
-        move(*(typename __getuniontype<num,Args...>::type*)(__body));
+        using Tp = typename __getuniontype<num,Args...>::type;
+        (*(Tp*)(__body)).~Tp();
     }
     
     template <typename Tp>
@@ -71,7 +75,7 @@ public:
 
     template <typename Tp>
     void delmember()
-    {Tp __del = std::move(*(Tp*)(__body));}
+    {(*(Tp*)(__body)).~Tp();}
 };
 
 //--------------------------beautiful-cutline---------------------------
@@ -121,14 +125,81 @@ class __init_struct<0,Args...>{
 public: inline static void
 For(unsigned char *body){return;}};
 
+//copy init struct(body)
+template <unsigned int num,typename...Args>
+class __copy_init_struct{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){
+    using Tp = typename __getstructtype<num,Args...>::type;
+    const unsigned long long address = __getstructtype<num,Args...>::address;
+    new((Tp*)(thisbody + address)) Tp(*(Tp*)(xbody + address));
+    __copy_init_struct<num-1,Args...>::For(thisbody,xbody);
+    return;
+}};
+//copy init struct(exit)
+template <typename...Args>
+class __copy_init_struct<0,Args...>{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){return;}};
+
+//move init struct(body)
+template <unsigned int num,typename...Args>
+class __move_init_struct{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){
+    using Tp = typename __getstructtype<num,Args...>::type;
+    const unsigned long long address = __getstructtype<num,Args...>::address;
+    new((Tp*)(thisbody + address)) Tp(std::move(*(Tp*)(xbody + address)));
+    __move_init_struct<num-1,Args...>::For(thisbody,xbody);
+    return;
+}};
+//move init struct(exit)
+template <typename...Args>
+class __move_init_struct<0,Args...>{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){return;}};
+
+//copy struct(body)
+template <unsigned int num,typename...Args>
+class __copy_struct{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){
+    using Tp = typename __getstructtype<num,Args...>::type;
+    const unsigned long long address = __getstructtype<num,Args...>::address;
+    *(Tp*)(thisbody + address) = *(Tp*)(xbody + address);
+    __copy_struct<num-1,Args...>::For(thisbody,xbody);
+    return;
+}};
+//copy struct(exit)
+template <typename...Args>
+class __copy_struct<0,Args...>{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){return;}};
+
+//move struct(body)
+template <unsigned int num,typename...Args>
+class __move_struct{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){
+    using Tp = typename __getstructtype<num,Args...>::type;
+    const unsigned long long address = __getstructtype<num,Args...>::address;
+    *(Tp*)(thisbody + address) = std::move(*(Tp*)(xbody + address));
+    __move_struct<num-1,Args...>::For(thisbody,xbody);
+    return;
+}};
+//move struct(exit)
+template <typename...Args>
+class __move_struct<0,Args...>{
+public: inline static void
+For(unsigned char *thisbody,const unsigned char *xbody){return;}};
+
 //delete struct (body)
 template <unsigned int num,typename...Args>
 class __del_struct{
 public: inline static void
 For(unsigned char *body){
-    typename __getstructtype<num,Args...>::type __del =
-    std::move(*(typename __getstructtype<num,Args...>::type *)
-    (body + __getstructtype<num,Args...>::address));
+    using _Tp = typename __getstructtype<num,Args...>::type;
+    (*(_Tp *)(body + __getstructtype<num,Args...>::address)).~_Tp();
     __del_struct<num-1,Args...>::For(body);
     return;
 }};
@@ -149,11 +220,33 @@ public:
         ::For(__body);
     }
 
+    autostruct(const autostruct<Args...> &x){
+        memset(__body,0,sizeof(__body));
+        __copy_init_struct<sizeof...(Args),Args...>
+        ::For(__body,x.__body);
+    }
+
+    autostruct(autostruct<Args...> &&x){
+        memset(__body,0,sizeof(__body));
+        __move_init_struct<sizeof...(Args),Args...>
+        ::For(__body,x.__body);
+    }
+
     template <unsigned int num>
     typename __getstructtype<num,Args...>::type &
-    getmember(){
+    getmember() const {
         return *(typename __getstructtype<num,Args...>::type *)
         (__body + __getstructtype<num,Args...>::address);
+    }
+
+    void operator=(const autostruct<Args...> &x){
+        __copy_struct<sizeof...(Args),Args...>
+        ::For(__body,x.__body);
+    }
+
+    void operator=(autostruct<Args...> &&x){
+        __move_struct<sizeof...(Args),Args...>
+        ::For(__body,x.__body);
     }
 
     ~autostruct(){
@@ -162,5 +255,46 @@ public:
     }
 };
 
+template <unsigned int num, typename...Args>
+typename __getstructtype<num+1,Args...>::type &
+get(const autostruct<Args...> &x)
+{return x. template getmember<num+1>();}
+
+//make struct for(body)
+template <unsigned int num, typename Tp, typename...Tail>
+class __make_struct{
+public: template <typename...Args> inline static void
+For(autostruct<Args...> &_Tmp, Tp x, Tail...args){
+    _Tmp. template getmember<num>() = x;
+    __make_struct<num+1,Tail...>:: template For<Args...>(_Tmp,args...);
+    return;
+}};
+
+//make struct for(exit)
+template <unsigned int num, typename Tp>
+class __make_struct<num,Tp>{
+public: template <typename...Args> inline static void
+For(autostruct<Args...> &_Tmp, Tp x){
+    _Tmp. template getmember<num>() = x;
+    return;
+}};
+
+template <typename...Args>
+autostruct<Args...> make_autostruct(Args...args){
+    autostruct<Args...> _Tmp;
+    __make_struct<1,Args...>:: template For<Args...>(_Tmp,args...);
+    return _Tmp;
+}
+
+}
+
+namespace std{
+    template <typename...Args>
+    class tuple_size<xxx::autostruct<Args...>>
+    {public: static constexpr size_t value = sizeof...(Args);};
+
+    template <size_t num,typename...Args>
+    class tuple_element<num, xxx::autostruct<Args...>>
+    {public: using type = typename xxx::__getstructtype<num+1,Args...>::type;};
 }
 #endif
